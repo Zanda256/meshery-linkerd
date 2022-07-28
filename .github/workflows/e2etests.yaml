@@ -158,12 +158,12 @@ jobs:
     needs: SetPatternfileForServicemeshAndSampleApp
     uses: meshery/meshery/.github/workflows/test_adapters.yaml@master
     with:
-      expected_resources: istiod,details,productpage,ratings,reviews-v1,reviews-v2,reviews-v3
-      expected_resources_types: pod,pod,pod,pod,pod,pod,pod
-      expected_resources_namespaces: istio-system,default,default,default,default,default,default
+      expected_resources: emoji,voting,web,vote-bot
+      expected_resources_types: pod,pod,pod,pod
+      expected_resources_namespaces: emojivoto,emojivoto,emojivoto,emojivoto
       deployment_url: https://raw.githubusercontent.com/meshery/meshery/master/install/deployment_yamls/k8s/meshery-linkerd-deployment.yaml
       service_url: https://raw.githubusercontent.com/meshery/meshery/master/install/deployment_yamls/k8s/meshery-linkerd-service.yaml
-      adapter_name: istio
+      adapter_name: linkerd
       patternfile_name: deployWithSampleApp.yaml
       provider: Local
       k8s_version: v1.20.1
@@ -210,7 +210,7 @@ jobs:
           echo $filename
           echo "---
           timestamp: $(jq '.metadata.runon| strptime("%a %b %e %X %Z %Y") | strftime("%Y-%m-%d %X %Z %a")' data.json)
-          meshery-component: meshery-istio
+          meshery-component: meshery-linkerd
           meshery-component-version: $version
           meshery-server-version: $(jq '.metadata."meshery-server-version"' data.json)
           k8s-distro: minikube
@@ -218,13 +218,10 @@ jobs:
           service-mesh: istio
           service-mesh-version: $(jq '.metadata.service_mesh_version' data.json)
           tests:
-            pod/istiod: $(jq '.resources_status."pod/istiod"' data.json)
-            pod/details: $(jq '.resources_status."pod/details"' data.json)
-            pod/productpage: $(jq '.resources_status."pod/productpage"' data.json)
-            pod/ratings: $(jq '.resources_status."pod/ratings"' data.json)
-            pod/reviews-v1: $(jq '.resources_status."pod/reviews-v1"' data.json)
-            pod/reviews-v2: $(jq '.resources_status."pod/reviews-v2"' data.json)
-            pod/reviews-v3: $(jq '.resources_status."pod/reviews-v3"' data.json)
+            pod/emoji: $(jq '.resources_status."pod/emoji"' data.json)
+            pod/voting: $(jq '.resources_status."pod/voting"' data.json)
+            pod/web: $(jq '.resources_status."pod/web"' data.json)
+            pod/vote-bot: $(jq '.resources_status."pod/vote-bot"' data.json)
           overall-status: $(jq '."overall-status"' data.json)
           ---" >  test.md
           mv test.md $filename.md

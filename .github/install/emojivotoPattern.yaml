@@ -1,0 +1,84 @@
+name: emojivotoPatternFile
+vars: 
+  namespace: emojivoto
+services: 
+  vote-bot: 
+    type: Application
+    namespace: $(#ref.vars.namespace)
+    settings:
+      advanced:
+        labels: 
+           app.kubernetes.io/name: vote-bot
+           app.kubernetes.io/part-of: emojivoto
+           app.kubernetes.io/version: v11
+      containers:
+      - image: docker.l5d.io/buoyantio/emojivoto-web:v11
+        name: vote-bot
+      name: vote-bot
+      replicas: 1  
+             
+  voting:
+    type: Application
+    namespace: $(#ref.vars.namespace)
+    settings:
+      advanced: 
+       labels: 
+         app.kubernetes.io/name: voting
+         app.kubernetes.io/part-of: emojivoto
+         app.kubernetes.io/version: v11
+      containers:
+      - image: docker.l5d.io/buoyantio/emojivoto-voting-svc:v11
+        name: voting-svc
+        ports:
+          - containerPort: 8080
+            name: grpc
+          - containerPort: 8801
+            name: prom
+      name: voting
+      replicas: 1  
+    traits:      
+        
+  emoji: 
+    type: Application 
+    namespace: $(#ref.vars.namespace)
+    settings:
+      advanced: 
+        labels: 
+          app.kubernetes.io/name: emoji
+          app.kubernetes.io/part-of: emojivoto
+          app.kubernetes.io/version: v11
+      containers: 
+      - image: docker.l5d.io/buoyantio/emojivoto-emoji-svc:v11
+        name: emoji-svc
+        ports: 
+        - containerPort: 8080
+          name: grpc
+        - containerPort: 8801
+          name: prom  
+      namespace: $(#ref.vars.namespace)    
+      name: emoji 
+      replicas: 1   
+    traits:   
+
+  web:
+    type: Application
+    namespace: $(#ref.vars.namespace)
+    settings:
+      advanced:
+        labels:
+          app.kubernetes.io/name: web
+          app.kubernetes.io/part-of: emojivoto
+          app.kubernetes.io/version: v11  
+      containers:
+      - image: docker.l5d.io/buoyantio/emojivoto-web:v11
+        name: web-svc
+        ports:
+        - containerPort: 8080
+          name: http
+      namespace: $(#ref.vars.namespace)
+      name: web
+      replicas: 1
+    traits:      
+
+                                             
+        

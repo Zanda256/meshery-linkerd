@@ -12,7 +12,7 @@ on:
   release:
     types: [published]
 jobs:
-  SetPatternfile:
+  SetPatternfileForServicemeshInstall:
     runs-on: ubuntu-latest
     outputs:
       sm_version: ${{ steps.glrt.outputs.release }}
@@ -42,12 +42,13 @@ jobs:
           name: patternfile
           path: ./.github/install/deploy.yaml 
 
-  TestLinkerd:
-    needs: SetPatternfile
-    uses: meshery/meshery/.github/workflows/testadapters.yaml@master
+  TestAdapterForServicemeshInstall:
+    needs: SetPatternfileForServicemeshInstall
+    uses: meshery/meshery/.github/workflows/test_adapters.yaml@master
     with:
-      expected_pods: linkerd-destination,linkerd-identity,linkerd-proxy-injector
-      expected_pods_namespaces: linkerd-system,linkerd-system,linkerd-system
+      expected_resources: linkerd-destination,linkerd-identity,linkerd-proxy-injector
+      expected_resources_types: pod,pod,pod
+      expected_resources_namespaces: linkerd-system,linkerd-system,linkerd-system
       deployment_url: https://raw.githubusercontent.com/meshery/meshery/master/install/deployment_yamls/k8s/meshery-linkerd-deployment.yaml
       service_url: https://raw.githubusercontent.com/meshery/meshery/master/install/deployment_yamls/k8s/meshery-linkerd-service.yaml
       adapter_name: linkerd
@@ -61,8 +62,8 @@ jobs:
       token: ${{ secrets.PROVIDER_TOKEN }} 
 
 
-  UpdateDocs:
-    needs: TestLinkerd
+  UpdateDocsForServicemeshInstall:
+    needs: TestAdapterForServicemeshInstall
     if:  "always() && github.event_name != 'pull_request' "
     runs-on: ubuntu-latest
     steps:
@@ -108,6 +109,122 @@ jobs:
             linkerd-destination: $(jq '.pods_status."linkerd-destination"' data.json)
             linkerd-identity: $(jq '.pods_status."linkerd-identity"' data.json)
             linkerd-proxy-injector:  $(jq '.pods_status."linkerd-proxy-injector"' data.json)
+          overall-status: $(jq '."overall-status"' data.json)
+          ---" >  test.md
+          mv test.md $filename.md
+          rm data.json
+      - name: Commit
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          file_pattern: docs
+          commit_user_name: l5io
+          commit_user_email: ci@layer5.io
+          commit_author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
+          commit_options: '--signoff'
+          commit_message: '[Docs] Test status of adapter'
+
+  SetPatternfileForServicemeshAndSampleApp:
+    runs-on: ubuntu-latest
+    outputs:
+      sm_version: ${{ steps.gettag.outputs.release }}
+      adapter_version:  ${{ env.version }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+      - name: Get version of adapter
+        run: |
+            if [ ${{ github.event_name }} == "release" ];then
+                echo "version=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
+            else 
+                echo "version=edge" >> $GITHUB_ENV
+            fi
+      - name: Get latest release tag
+        id: gettag
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          repository: linkerd/linkerd2
+          excludes: prerelease, draft, edge 
+      - name: Change service mesh version in patternfile
+        run: | 
+           yq e -i '.services.linkerdinstallation.settings.linkerdVersion="${{ steps.gettag.outputs.release }}"' ./.github/install/deployWithSampleApp.yaml 
+           cat ./.github/install/deployWithSampleApp.yaml
+      - name: Uploading file
+        uses: actions/upload-artifact@v2
+        with:
+          name: patternfile
+          path: ./.github/install/deployWithSampleApp.yaml 
+
+  TestLinkerdForServicemeshAndSampleApp:
+    needs: SetPatternfileForServicemeshAndSampleApp
+    uses: meshery/meshery/.github/workflows/test_adapters.yaml@master
+    with:
+      expected_resources: istiod,details,productpage,ratings,reviews-v1,reviews-v2,reviews-v3
+      expected_resources_types: pod,pod,pod,pod,pod,pod,pod
+      expected_resources_namespaces: istio-system,default,default,default,default,default,default
+      deployment_url: https://raw.githubusercontent.com/meshery/meshery/master/install/deployment_yamls/k8s/meshery-linkerd-deployment.yaml
+      service_url: https://raw.githubusercontent.com/meshery/meshery/master/install/deployment_yamls/k8s/meshery-linkerd-service.yaml
+      adapter_name: istio
+      patternfile_name: deployWithSampleApp.yaml
+      provider: Local
+      k8s_version: v1.20.1
+      sm_version: ${{ needs.SetPatternfileForServicemeshAndSampleApp.outputs.sm_version }}
+      adapter_version:  ${{ needs.SetPatternfileForServicemeshAndSampleApp.outputs.adapter_version }}
+      output_filename: data.json
+    secrets:
+      token: ${{ secrets.PROVIDER_TOKEN }} 
+
+  UpdateDocsForServicemeshAndSampleApp:
+    needs: [TestLinkerdForServicemeshAndSampleApp, UpdateDocsForServicemeshInstall]
+    if:  "always() && github.event_name != 'pull_request' "
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip if needed
+        run: |
+            echo "this is it ${{ needs.SkipIfNeeded.outputs.skipdocupdate }} "
+            if [ "${{github.event_name }}" == "push" ];then
+              echo "version=edge" >> $GITHUB_ENV
+            fi
+            if [ "${{github.event_name }}" == "release" ];then
+              echo "version=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
+            fi
+      - uses: actions/checkout@master
+        with:
+          repository: meshery/meshery 
+          token: ${{ secrets.GH_ACCESS_TOKEN }}   
+      - name: DownloadJSON
+        uses: actions/download-artifact@v2
+        with:
+          name: data.json
+      - name: Add commit SHORT_SHA
+        run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-8`" >> $GITHUB_ENV
+      - name: echo results
+        run: |
+          pretty=$(jq . data.json)
+          rm data.json
+          cd ./docs/_compatibility/meshery-linkerd
+          touch data.json
+          echo $pretty > data.json
+          cat data.json
+          touch test.md
+          filename=(`date +%m-%d-%Y-%H-%M-%m_${SHORT_SHA}`)
+          echo $filename
+          echo "---
+          timestamp: $(jq '.metadata.runon| strptime("%a %b %e %X %Z %Y") | strftime("%Y-%m-%d %X %Z %a")' data.json)
+          meshery-component: meshery-istio
+          meshery-component-version: $version
+          meshery-server-version: $(jq '.metadata."meshery-server-version"' data.json)
+          k8s-distro: minikube
+          k8s-version: $(jq '.metadata.k8s_version' data.json)
+          service-mesh: istio
+          service-mesh-version: $(jq '.metadata.service_mesh_version' data.json)
+          tests:
+            pod/istiod: $(jq '.resources_status."pod/istiod"' data.json)
+            pod/details: $(jq '.resources_status."pod/details"' data.json)
+            pod/productpage: $(jq '.resources_status."pod/productpage"' data.json)
+            pod/ratings: $(jq '.resources_status."pod/ratings"' data.json)
+            pod/reviews-v1: $(jq '.resources_status."pod/reviews-v1"' data.json)
+            pod/reviews-v2: $(jq '.resources_status."pod/reviews-v2"' data.json)
+            pod/reviews-v3: $(jq '.resources_status."pod/reviews-v3"' data.json)
           overall-status: $(jq '."overall-status"' data.json)
           ---" >  test.md
           mv test.md $filename.md

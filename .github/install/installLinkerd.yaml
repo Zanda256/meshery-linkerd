@@ -16,3 +16,4 @@ services:
       automaticSidecarInjection:
         namespaces:
           - $(#ref.vars.namespace)
+          

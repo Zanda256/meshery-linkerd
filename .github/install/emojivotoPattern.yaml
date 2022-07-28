@@ -207,6 +207,4 @@ services:
         selector:
           app: web-svc
         type: ClusterIP    
-
-                                             
-        
+      

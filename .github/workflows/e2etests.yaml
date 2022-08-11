@@ -44,7 +44,7 @@ jobs:
 
   TestAdapterForServicemeshInstall:
     needs: SetPatternfileForServicemeshInstall
-    uses: meshery/meshery/.github/workflows/test_adapters.yaml@master
+    uses: github.com/Zanda256/meshery/.github/workflows/test_adapters.yaml@master
     with:
       expected_resources: linkerd-destination,linkerd-identity,linkerd-proxy-injector
       expected_resources_types: pod,pod,pod
@@ -235,4 +235,3 @@ jobs:
           commit_author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
           commit_options: '--signoff'
           commit_message: '[Docs] Test status of adapter'
-          

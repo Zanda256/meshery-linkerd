@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,6 +25,7 @@ import (
 	"github.com/layer5io/meshery-linkerd/linkerd"
 	"github.com/layer5io/meshery-linkerd/linkerd/oam"
 	"github.com/layer5io/meshkit/logger"
+	"github.com/layer5io/meshkit/utils/events"
 
 	// "github.com/layer5io/meshkit/tracing"
 	"github.com/layer5io/meshery-adapter-library/adapter"
@@ -98,13 +99,12 @@ func main() {
 	// 	log.Err("Tracing Init Failed", err.Error())
 	// 	os.Exit(1)
 	// }
-
+	e := events.NewEventStreamer()
 	// Initialize Handler intance
-	handler := linkerd.New(cfg, log, kubeconfigHandler)
+	handler := linkerd.New(cfg, log, kubeconfigHandler, e)
 	handler = adapter.AddLogger(log, handler)
-
+	service.EventStreamer = e
 	service.Handler = handler
-	service.Channel = make(chan interface{}, 10)
 	service.StartedAt = time.Now()
 	service.Version = version
 	service.GitSHA = gitsha
@@ -185,10 +185,10 @@ func registerWorkloads(port string, log logger.Handler) {
 
 	log.Info("Registering latest service mesh components for version ", version)
 	// Register workloads
-	for _, manifest := range build.CRDnames {
-		log.Info("Registering for ", manifest)
+	for name, url := range build.CRDnamesURL {
+		log.Info("Registering for ", name)
 		if err := adapter.CreateComponents(adapter.StaticCompConfig{
-			URL:     build.GenerationURL(manifest),
+			URL:     url,
 			Method:  gm,
 			Path:    build.WorkloadPath,
 			DirName: version,
@@ -197,7 +197,7 @@ func registerWorkloads(port string, log logger.Handler) {
 			log.Error(err)
 			return
 		}
-		log.Info(manifest, " registered")
+		log.Info(name, " registered")
 	}
 
 	//The below log is checked in the workflows. If you change this log, reflect that change in the workflow where components are generated

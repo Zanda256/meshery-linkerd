@@ -1,48 +1,68 @@
-GOPATH = $(shell go env GOPATH)
+# Copyright Meshery Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-check: error
+include build/Makefile.core.mk
+include build/Makefile.show-help.mk
+
+#-----------------------------------------------------------------------------
+# Environment Setup
+#-----------------------------------------------------------------------------
+BUILDER=buildx-multi-arch
+ADAPTER=linkerd
+
+v ?= 1.19.1 # Default go version to be used
+
+
+#-----------------------------------------------------------------------------
+# Docker-based Builds
+#-----------------------------------------------------------------------------
+.PHONY: docker docker-run lint error test run run-force-dynamic-reg
+
+
+## Lint check Golang
+lint:
 	golangci-lint run
 
-check-clean-cache:
-	golangci-lint cache clean
-	
-protoc-setup:
-	cd meshes
-	wget https://raw.githubusercontent.com/layer5io/meshery/master/meshes/meshops.proto
-
-proto:	
-	protoc -I meshes/ meshes/meshops.proto --go_out=plugins=grpc:./meshes/
-
+## Build Adapter container image with "edge-latest" tag
 docker:
-	docker build -t layer5/meshery-linkerd .
+	DOCKER_BUILDKIT=1 docker build -t layer5/meshery-$(ADAPTER):$(RELEASE_CHANNEL)-latest .
 
+## Run Adapter container with "edge-latest" tag
 docker-run:
-	(docker rm -f meshery-linkerd) || true
-	docker run --name meshery-linkerd -d \
-	-p 10001:10001 \
+	(docker rm -f meshery-$(ADAPTER)) || true
+	docker run --name meshery-$(ADAPTER) -d \
+	-p 10000:10000 \
 	-e DEBUG=true \
-	layer5/meshery-linkerd
+	layer5/meshery-$(ADAPTER):$(RELEASE_CHANNEL)-latest
 
+## Build and run Adapter locally
 run:
-	DEBUG=true go run main.go
+	go$(v) mod tidy; \
+	DEBUG=true GOPROXY=direct GOSUMDB=off go run main.go
 
-.PHONY: error
+## Build and run Adapter locally; force component registration
+run-force-dynamic-reg:
+	FORCE_DYNAMIC_REG=true DEBUG=true GOPROXY=direct GOSUMDB=off go run main.go
+
+## Run Meshery Error utility
 error:
 	go run github.com/layer5io/meshkit/cmd/errorutil -d . analyze -i ./helpers -o ./helpers
 
-.PHONY: local-check
-local-check: tidy
-local-check: golangci-lint
-
-.PHONY: tidy
-tidy:
-	@echo "Executing go mod tidy"
-	go mod tidy
-
-.PHONY: golangci-lint
-golangci-lint: $(GOLANGCILINT)
-	@echo
-	$(GOPATH)/bin/golangci-lint run
-
-$(GOLANGCILINT):
-	(cd /; GO111MODULE=on GOPROXY="direct" GOSUMDB=off go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.30.0)
+## Run Golang tests
+test:
+	export CURRENTCONTEXT="$(kubectl config current-context)" 
+	echo "current-context:" ${CURRENTCONTEXT} 
+	export KUBECONFIG="${HOME}/.kube/config"
+	echo "environment-kubeconfig:" ${KUBECONFIG}
+	GOPROXY=direct GOSUMDB=off GO111MODULE=on go test -v ./...

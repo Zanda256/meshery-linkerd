@@ -51,18 +51,24 @@ var (
 
 	// ErrNilClientCode represents the error code which is
 	// generated when Kubernetes client is nil
-	ErrNilClientCode = "1019"
+	ErrNilClientCode = "1021"
 
 	//ErrAddonFromHelmCode represents the error while installing addons through helm charts
-	ErrAddonFromHelmCode = "1014"
+	ErrAddonFromHelmCode = "1022"
+
+	// ErrFetchLinkerdVersionsCode represents the error code which is 
+	// generated when linkerd version fetching fails
+	ErrFetchLinkerdVersionsCode = "1033"
 
 	//ErrInvalidVersionForMeshInstallationCode represents the error while installing mesh through helm charts with invalid version
-	ErrInvalidVersionForMeshInstallationCode = "1015"
+	ErrInvalidVersionForMeshInstallationCode = "1023"
 
 	//ErrAnnotatingNamespaceCode represents the error while annotating namespace
-	ErrAnnotatingNamespaceCode = "1016"
+	ErrAnnotatingNamespaceCode = "1024"
 	//ErrInvalidVersionForMeshInstallation represents the error while installing mesh through helm charts with invalid version
 	ErrInvalidVersionForMeshInstallation = errors.New(ErrInvalidVersionForMeshInstallationCode, errors.Alert, []string{"Invalid version passed for helm based installation"}, []string{"Version passed is invalid"}, []string{"Version might not be prefixed with \"stable-\" or \"edge-\""}, []string{"Version should be prefixed with \"stable-\" or \"edge-\"", "Version might be empty"})
+	//ErrFetchLinkerdVersions represents the error while fetching linkerd versions
+	ErrFetchLinkerdVersions = errors.New(ErrFetchLinkerdVersionsCode, errors.Alert, []string{"could not get any linkerd versions"}, []string{"versions for linkerd could not be fetched"}, []string{"could not reach github.com/linkerd/linkerd2", "no versions could be fetched from linkerd release page"}, []string{"make sure adapter is reachable to github"})
 	// ErrOpInvalid is the error for invalid operation
 	ErrOpInvalid = errors.New(ErrOpInvalidCode, errors.Alert, []string{"Invalid operation"}, []string{}, []string{}, []string{})
 
@@ -154,7 +160,7 @@ func ErrAddonFromHelm(err error) error {
 	return errors.New(ErrAddonFromHelmCode, errors.Alert, []string{"Error with addon install operation by helm chart"}, []string{err.Error()}, []string{"The helm chart URL in additional properties of addon operation might be incorrect", "Could not apply service patch file for the given addon"}, []string{})
 }
 
-//ErrAnnotatingNamespace is the error while annotating the namespace
+// ErrAnnotatingNamespace is the error while annotating the namespace
 func ErrAnnotatingNamespace(err error) error {
-	return errors.New(ErrAddonFromHelmCode, errors.Alert, []string{"Error with annotating namespace"}, []string{err.Error()}, []string{"Could not get the namespace in cluster", "Could not update namespace in cluster"}, []string{"Make sure the cluster is reachable"})
+	return errors.New(ErrAnnotatingNamespaceCode, errors.Alert, []string{"Error with annotating namespace"}, []string{err.Error()}, []string{"Could not get the namespace in cluster", "Could not update namespace in cluster"}, []string{"Make sure the cluster is reachable"})
 }

@@ -7,10 +7,14 @@ on:
     tags:
       - "v*"
     paths-ignore:
+<<<<<<< HEAD
       - 'docs/**'
+=======
+      - 'docs/**'   
+>>>>>>> a354c05ebfa7183eab5e3e988db68fcaafda1551
   pull_request:
-    branches:
-      - "*"
+     branches:
+       - "*"
   release:
     types: [published]
 jobs:
@@ -21,7 +25,7 @@ jobs:
       adapter_version:  ${{ env.version }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@master
       - name: Get version of adapter
         run: |
             if [ ${{ github.event_name }} == "release" ];then
@@ -33,20 +37,26 @@ jobs:
         id: glrt
         run: |
           NEW_LINKERD_VERSION=$(curl --silent "https://api.github.com/repos/linkerd/linkerd2/releases" | jq ' .[] | select(.tag_name|test("stable")) | ."tag_name"' | sed -n 1p$'\n' | tr -d '"')
-          echo "::set-output name=release::$NEW_LINKERD_VERSION"
+          echo "name=release::$NEW_LINKERD_VERSION" >> $GITHUB_OUTPUT
       - name: Change service mesh version in patternfile
         run: | 
-           yq e -i '.services.linkerd.settings.version="${{ steps.glrt.outputs.release }}"' ./.github/install/deploy.yaml 
+           yq e -i '.services.linkerd.version="${{ steps.glrt.outputs.release }}"' ./.github/install/deploy.yaml 
            cat ./.github/install/deploy.yaml
       - name: Uploading file
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: patternfile
           path: ./.github/install/deploy.yaml 
 
+<<<<<<< HEAD
   TestAdapterForServicemeshInstall:
     needs: SetPatternfileForServicemeshInstall
     uses: github.com/Zanda256/meshery/.github/workflows/test_adapters.yaml@master
+=======
+  TestLinkerd:
+    needs: SetPatternfile
+    uses: meshery/meshery/.github/workflows/test_adapters.yaml@master
+>>>>>>> a354c05ebfa7183eab5e3e988db68fcaafda1551
     with:
       expected_resources: linkerd-destination,linkerd-identity,linkerd-proxy-injector
       expected_resources_types: pod,pod,pod
@@ -56,9 +66,15 @@ jobs:
       adapter_name: linkerd
       patternfile_name: deploy.yaml
       provider: Local
+<<<<<<< HEAD
       k8s_version: v1.20.1
       sm_version: ${{ needs.SetPatternfileForServicemeshInstall.outputs.sm_version }}
       adapter_version:  ${{ needs.SetPatternfileForServicemeshInstall.outputs.adapter_version }}
+=======
+      k8s_version: v1.22.15
+      sm_version: ${{ needs.SetPatternfile.outputs.sm_version }}
+      adapter_version:  ${{ needs.SetPatternfile.outputs.adapter_version }}
+>>>>>>> a354c05ebfa7183eab5e3e988db68fcaafda1551
       output_filename: data.json
     secrets:
       token: ${{ secrets.PROVIDER_TOKEN }} 
@@ -83,7 +99,7 @@ jobs:
           repository: meshery/meshery 
           token: ${{ secrets.GH_ACCESS_TOKEN }}   
       - name: DownloadJSON
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: data.json
       - name: echo results
@@ -108,9 +124,9 @@ jobs:
           service-mesh: Linkerd
           service-mesh-version: $(jq '.metadata.service_mesh_version' data.json)
           tests:
-            linkerd-destination: $(jq '.pods_status."linkerd-destination"' data.json)
-            linkerd-identity: $(jq '.pods_status."linkerd-identity"' data.json)
-            linkerd-proxy-injector:  $(jq '.pods_status."linkerd-proxy-injector"' data.json)
+            pod/linkerd-destination: $(jq '.resources_status."pod/linkerd-destination"' data.json)
+            pod/linkerd-identity: $(jq '.resources_status."pod/linkerd-identity"' data.json)
+            pod/linkerd-proxy-injector:  $(jq '.resources_status."pod/linkerd-proxy-injector"' data.json)
           overall-status: $(jq '."overall-status"' data.json)
           ---" >  test.md
           mv test.md $filename.md
